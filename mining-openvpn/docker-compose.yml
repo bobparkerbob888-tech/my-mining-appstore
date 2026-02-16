@@ -1,0 +1,64 @@
+services:
+
+  app_proxy:
+    image: getumbrel/app-proxy:1.0.0
+    environment:
+      APP_HOST: mining-openvpn_web_1
+      APP_PORT: 8080
+    ports:
+      - "8080:8080"
+
+  vpn:
+    image: dperson/openvpn-client:latest
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    security_opt:
+      - label:disable
+    tmpfs:
+      - /run
+      - /tmp
+    stdin_open: true
+    tty: true
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    volumes:
+      - ${APP_DATA_DIR}/data/vpn:/vpn
+    environment:
+      TZ: America/Los_Angeles
+
+  web:
+    image: node:20-alpine
+    restart: on-failure
+    depends_on:
+      - vpn
+    volumes:
+      - ${APP_DATA_DIR}/data/vpn:/vpn
+    ports:
+      - "3381:8080"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        cat > /tmp/s.js << 'EOF'
+        const http=require("http"),fs=require("fs"),path=require("path");
+        const VPN_DIR="/vpn",PORT=8080;
+        try{fs.mkdirSync(VPN_DIR,{recursive:true})}catch{}
+        function lc(){try{return fs.readdirSync(VPN_DIR).filter(f=>/\.(ovpn|conf|crt|key|pem|auth|ca|tls)$/i.test(f))}catch{return[]}}
+        function ha(){return fs.existsSync(path.join(VPN_DIR,"vpn.auth"))}
+        function pm(buf,b){const s=buf.toString("binary"),ps=s.split("--"+b);for(const p of ps){const m=p.match(/filename="([^"]+)"/);if(m){const n=m[1].replace(/[^a-zA-Z0-9._-]/g,"_"),i=p.indexOf("\r\n\r\n")+4,e=p.lastIndexOf("\r\n");if(i>3&&e>i)return{n,d:Buffer.from(p.substring(i,e),"binary")}}}return null}
+        function jres(res,code,obj){res.writeHead(code,{"Content-Type":"application/json"});res.end(JSON.stringify(obj))}
+        function body(req,cb){let b="";req.on("data",c=>b+=c);req.on("end",()=>cb(b))}
+        const sv=http.createServer((req,res)=>{
+          if(req.url==="/api/status")return jres(res,200,{configs:lc(),hasAuth:ha()});
+          if(req.url==="/api/upload"&&req.method==="POST"){const ch=[];req.on("data",c=>ch.push(c));req.on("end",()=>{try{const buf=Buffer.concat(ch),bd=(req.headers["content-type"]||"").split("boundary=")[1];if(!bd)throw new Error("No boundary");const f=pm(buf,bd);if(!f)throw new Error("No file");fs.writeFileSync(path.join(VPN_DIR,f.n),f.d);jres(res,200,{ok:true,file:f.n})}catch(e){jres(res,400,{ok:false,error:e.message})}});return}
+          if(req.url==="/api/delete"&&req.method==="POST"){body(req,b=>{try{const{file}=JSON.parse(b),fp=path.join(VPN_DIR,path.basename(file));if(fs.existsSync(fp))fs.unlinkSync(fp);jres(res,200,{ok:true})}catch(e){jres(res,400,{ok:false,error:e.message})}});return}
+          if(req.url==="/api/save-auth"&&req.method==="POST"){body(req,b=>{try{const{username:u,password:p}=JSON.parse(b);fs.writeFileSync(path.join(VPN_DIR,"vpn.auth"),u+"\n"+p+"\n");jres(res,200,{ok:true})}catch(e){jres(res,400,{ok:false,error:e.message})}});return}
+          if(req.url==="/api/delete-auth"&&req.method==="POST"){const fp=path.join(VPN_DIR,"vpn.auth");if(fs.existsSync(fp))fs.unlinkSync(fp);return jres(res,200,{ok:true})}
+          res.writeHead(200,{"Content-Type":"text/html"});res.end(H())});
+        sv.listen(PORT,"0.0.0.0",()=>console.log("[web] OpenVPN UI on :"+PORT));
+        function H(){return`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OpenVPN Client</title><style>:root{--bg:#0f1117;--card:#1a1d27;--border:#2a2d3a;--accent:#6366f1;--green:#22c55e;--red:#ef4444;--text:#e2e8f0;--muted:#94a3b8;--orange:#f59e0b}*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}.ctr{max-width:640px;margin:0 auto;padding:24px 16px}h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}.sub{color:var(--muted);font-size:.9rem;margin-bottom:28px}.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}h2{font-size:1.1rem;font-weight:600;margin-bottom:12px}.bg{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}.bg-g{background:#22c55e22;color:var(--green)}.bg-r{background:#ef444422;color:var(--red)}.bg-y{background:#f59e0b22;color:var(--orange)}.btn{padding:10px 20px;border:none;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer}.bp{background:var(--accent);color:#fff}.bo{background:transparent;color:var(--text);border:1px solid var(--border)}.bd{padding:4px 12px;font-size:.75rem;border-radius:6px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer}input[type=text],input[type=password]{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem;outline:none;margin-bottom:10px;font-family:monospace}input::placeholder{color:#4a5568}label{display:block;font-size:.85rem;font-weight:500;margin-bottom:6px;color:var(--muted)}.fi{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px;font-family:monospace;font-size:.85rem}.dz{border:2px dashed var(--border);border-radius:12px;padding:40px 20px;text-align:center;color:var(--muted);cursor:pointer}.dz:hover,.dz.dg{border-color:var(--accent);color:var(--text)}.msg{padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:.85rem}.mo{background:#22c55e22;color:var(--green)}.me{background:#ef444422;color:var(--red)}.info{font-size:.85rem;color:var(--muted);line-height:1.6}</style></head><body><div class="ctr"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><h1>&#x1f512; OpenVPN Client</h1><span id="sb"></span></div><p class="sub">Route your Umbrel traffic through a VPN tunnel</p><div id="msg"></div><div class="card"><h2>&#x1f4c1; VPN Config Files</h2><div id="fl"></div><div class="dz" id="dz" onclick="document.getElementById('fi').click()"><p style="font-size:1.5rem;margin-bottom:8px">&#x1f4c2;</p><p>Drop your <strong>.ovpn</strong> file here or click to browse</p><p style="font-size:.75rem;margin-top:6px">Also accepts .conf .crt .key .pem</p><input type="file" id="fi" accept=".ovpn,.conf,.crt,.key,.pem,.ca,.tls" style="display:none" multiple onchange="uf(this.files)"></div></div><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h2 style="margin-bottom:0">&#x1f511; Authentication</h2><span id="ab"></span></div><p class="info" style="margin-bottom:12px">Only needed if your VPN provider requires username/password.</p><label>Username</label><input type="text" id="vu" placeholder="VPN username"><label>Password</label><input type="password" id="vp" placeholder="VPN password"><div style="display:flex;gap:10px"><button class="btn bp" onclick="sa()">Save Credentials</button><button class="btn bo" id="cb" onclick="ca()" style="display:none">Clear</button></div></div><div class="card"><h2>&#x2139;&#xfe0f; How It Works</h2><div class="info"><strong>1.</strong> Upload your <strong>.ovpn</strong> config from your VPN provider.<br><strong>2.</strong> If required, enter your VPN username and password.<br><strong>3.</strong> Restart the app from Umbrel to connect.<br><strong>4.</strong> The VPN container auto-detects your .ovpn and connects.<br><br><strong>Tip:</strong> Upload any referenced cert/key files too.</div></div></div><script>const dz=document.getElementById("dz");dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("dg")});dz.addEventListener("dragleave",()=>dz.classList.remove("dg"));dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("dg");uf(e.dataTransfer.files)});function sm(t,ok){document.getElementById("msg").innerHTML='<div class="msg '+(ok?"mo":"me")+'">'+t+"</div>";setTimeout(()=>document.getElementById("msg").innerHTML="",5000)}async function uf(files){for(const f of files){const fd=new FormData();fd.append("file",f);try{const r=await fetch("/api/upload",{method:"POST",body:fd});const d=await r.json();d.ok?sm("Uploaded: "+d.file+" - restart app to apply",true):sm(d.error,false)}catch(e){sm("Upload failed",false)}}rf()}async function sa(){const u=document.getElementById("vu").value.trim(),p=document.getElementById("vp").value.trim();if(!u||!p){sm("Enter both fields",false);return}try{const r=await fetch("/api/save-auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});const d=await r.json();d.ok?(sm("Credentials saved! Restart to apply.",true),rf()):sm(d.error,false)}catch(e){sm(e.message,false)}}async function ca(){if(!confirm("Remove credentials?"))return;await fetch("/api/delete-auth",{method:"POST"});sm("Cleared",true);rf()}async function df(f){if(!confirm("Delete "+f+"?"))return;await fetch("/api/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({file:f})});rf()}async function rf(){try{const r=await fetch("/api/status");const d=await r.json();const fl=document.getElementById("fl"),sb=document.getElementById("sb"),ab=document.getElementById("ab"),cb=document.getElementById("cb");const has=d.configs.some(f=>f.endsWith(".ovpn")||f.endsWith(".conf"));sb.innerHTML=has?'<span class="bg bg-g">Config Loaded</span>':'<span class="bg bg-y">No Config</span>';ab.innerHTML=d.hasAuth?'<span class="bg bg-g">Saved</span>':'<span class="bg bg-r">Not Set</span>';cb.style.display=d.hasAuth?"":"none";if(!d.configs.length){fl.innerHTML='<p style="color:var(--muted);font-size:.85rem;margin-bottom:12px">No config files. Upload one below.</p>';return}fl.innerHTML=d.configs.map(f=>'<div class="fi"><span>'+f+'</span><button class="bd" onclick="df(\\''+f+'\\')">Delete</button></div>').join("")}catch(e){console.error(e)}}rf();setInterval(rf,15000)</script></body></html>`}
+        EOF
+        node /tmp/s.js
