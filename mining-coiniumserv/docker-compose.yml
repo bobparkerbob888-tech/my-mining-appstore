@@ -2,7 +2,7 @@ services:
 
   # Bitcoin Core
   bitcoind:
-    image: lncm/bitcoind:v27.0
+    image: lncm/bitcoind:v27.2
     restart: on-failure
     stop_grace_period: 15m
     volumes:
@@ -21,7 +21,7 @@ services:
 
   # Litecoin Core (parent chain for merge mining)
   litecoind:
-    image: uphold/litecoin-core:0.21.3
+    image: uphold/litecoin-core:0.21
     restart: on-failure
     stop_grace_period: 15m
     volumes:
@@ -67,9 +67,12 @@ services:
 
   # CoiniumServ + Web Dashboard
   app_proxy:
+    image: getumbrel/app-proxy:1.0.0
     environment:
-      APP_HOST: coiniumserv
+      APP_HOST: mining-coiniumserv_coiniumserv_1
       APP_PORT: 8080
+    ports:
+      - "8080:8080"
 
   coiniumserv:
     image: ghcr.io/bobparkerbob888-tech/coiniumserv-mining-pool:latest
@@ -99,6 +102,6 @@ services:
     ports:
       - "3333:3333"
       - "3334:3334"
-      - "8080:8080"
+      - "3380:8080"
     volumes:
       - ${APP_DATA_DIR}/data/coiniumserv:/app/data
