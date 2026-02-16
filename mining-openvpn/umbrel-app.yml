@@ -1,1 +1,21 @@
-
+manifestVersion: 1
+id: mining-openvpn
+name: OpenVPN Client
+tagline: Route your Umbrel's traffic through a remote VPN
+icon: https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/OpenVPN_logo.svg/1024px-OpenVPN_logo.svg.png
+category: networking
+version: "1.0.0"
+port: 3381
+description: >-
+  Connect your Umbrel to a remote OpenVPN server to route traffic through an encrypted VPN tunnel.
+  Upload your .ovpn configuration file through the web dashboard, enter optional credentials, and connect.
+developer: Community
+website: https://openvpn.net
+submitter: bobparkerbob888-tech
+submission: https://github.com/bobparkerbob888-tech/my-mining-appstore
+repo: https://github.com/dperson/openvpn-client
+support: https://github.com/dperson/openvpn-client/issues
+gallery:
+  - https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/OpenVPN_logo.svg/1024px-OpenVPN_logo.svg.png
+releaseNotes: >-
+  Initial release with web-based config uplo
