@@ -7,7 +7,7 @@ category: networking
 version: "1.0.0"
 port: 3381
 description: >-
-  Connect your Umbrel to a remote OpenVPN server to route traffic through an encrypted VPN tunnel. Upload your .ovpn configuration file through the web dashboard and connect. Donate BTC: bc1q8p67d6gc2dflkphdpjtthle63q37xewmtqprv7
+  Connect your Umbrel to a remote OpenVPN server to route traffic through an encrypted VPN tunnel. Upload your .ovpn configuration file through the web dashboard and connect. Donate BTC bc1q8p67d6gc2dflkphdpjtthle63q37xewmtqprv7
 developer: bobparkerbob888-tech
 website: https://github.com/bobparkerbob888-tech/my-mining-appstore
 submitter: bobparkerbob888-tech
