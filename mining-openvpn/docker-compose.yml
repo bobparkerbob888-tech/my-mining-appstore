@@ -1,25 +1,15 @@
 services:
   vpn:
-    image: dperson/openvpn-client:latest
+    image: ghcr.io/wfg/openvpn-client:latest
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
-    security_opt:
-      - label:disable
-    tmpfs:
-      - /run
-      - /tmp
-    stdin_open: true
-    tty: true
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
     volumes:
-      - ${APP_DATA_DIR}/data/vpn:/vpn
+      - ${APP_DATA_DIR}/data/vpn:/data/vpn
     environment:
-      TZ: America/Los_Angeles
+      VPN_CONFIG_FILE: /data/vpn/*.ovpn
 
   web:
     image: ghcr.io/bobparkerbob888-tech/openvpn-web:latest
@@ -30,3 +20,25 @@ services:
       - "3381:8080"
     volumes:
       - ${APP_DATA_DIR}/data/vpn:/vpn
+```
+
+Commit. Then on SSH:
+```
+sudo docker stop mining-openvpn_vpn_1
+```
+```
+sudo docker rm mining-openvpn_vpn_1
+```
+```
+sudo docker pull ghcr.io/wfg/openvpn-client:latest
+```
+```
+export APP_DATA_DIR=~/umbrel/app-data/mining-openvpn
+```
+```
+sudo -E docker compose -f ~/umbrel/app-stores/bobparkerbob888-tech-my-mining-appstore-github-482c238d/mining-openvpn/docker-compose.yml up -d
+```
+
+Then check:
+```
+sudo docker logs mining-openvpn_vpn_1 2>&1 | tail -20
