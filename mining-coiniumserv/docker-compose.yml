@@ -1,6 +1,6 @@
 services:
 
-  # Bitcoin Core
+  # Bitcoin Core (SHA256 parent chain)
   bitcoind:
     image: lncm/bitcoind:v27.2
     restart: on-failure
@@ -19,7 +19,26 @@ services:
       - -printtoconsole
       - -dbcache=450
 
-  # Litecoin Core (parent chain for merge mining)
+  # Namecoin Core (SHA256 auxiliary chain, merge-mined with Bitcoin)
+  namecoind:
+    image: sevenrats/namecoin-core:latest
+    restart: on-failure
+    stop_grace_period: 15m
+    volumes:
+      - ${APP_DATA_DIR}/data/namecoin:/root/.namecoin
+    command:
+      - namecoind
+      - -server=1
+      - -rpcuser=umbrel
+      - -rpcpassword=${APP_PASSWORD:-umbrel}
+      - -rpcallowip=0.0.0.0/0
+      - -rpcbind=0.0.0.0
+      - -rpcport=8336
+      - -port=8334
+      - -txindex=1
+      - -printtoconsole
+
+  # Litecoin Core (Scrypt parent chain)
   litecoind:
     image: uphold/litecoin-core:0.21
     restart: on-failure
@@ -38,7 +57,7 @@ services:
       - -txindex=1
       - -printtoconsole
 
-  # Dogecoin Core (auxiliary chain, merge-mined with Litecoin)
+  # Dogecoin Core (Scrypt auxiliary chain, merge-mined with Litecoin)
   dogecoind:
     image: casperstack/dogecoin:latest
     restart: on-failure
@@ -79,6 +98,7 @@ services:
     restart: on-failure
     depends_on:
       - bitcoind
+      - namecoind
       - litecoind
       - dogecoind
       - redis
@@ -88,6 +108,10 @@ services:
       BTC_DAEMON_PORT: "8332"
       BTC_DAEMON_USER: "umbrel"
       BTC_DAEMON_PASS: "${APP_PASSWORD:-umbrel}"
+      NMC_DAEMON_HOST: "namecoind"
+      NMC_DAEMON_PORT: "8336"
+      NMC_DAEMON_USER: "umbrel"
+      NMC_DAEMON_PASS: "${APP_PASSWORD:-umbrel}"
       LTC_DAEMON_HOST: "litecoind"
       LTC_DAEMON_PORT: "9332"
       LTC_DAEMON_USER: "umbrel"
