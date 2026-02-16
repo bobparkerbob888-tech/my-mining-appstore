@@ -17,6 +17,7 @@ const DEFAULTS = {
   btc: { host: process.env.BTC_DAEMON_HOST || 'bitcoind', rpcPort: process.env.BTC_DAEMON_PORT || '8332', user: process.env.BTC_DAEMON_USER || 'umbrel', pass: process.env.BTC_DAEMON_PASS || process.env.APP_PASSWORD || 'umbrel' },
   ltc: { host: process.env.LTC_DAEMON_HOST || 'litecoind', rpcPort: process.env.LTC_DAEMON_PORT || '9332', user: process.env.LTC_DAEMON_USER || 'umbrel', pass: process.env.LTC_DAEMON_PASS || process.env.APP_PASSWORD || 'umbrel' },
   doge: { host: process.env.DOGE_DAEMON_HOST || 'dogecoind', rpcPort: process.env.DOGE_DAEMON_PORT || '22555', user: process.env.DOGE_DAEMON_USER || 'umbrel', pass: process.env.DOGE_DAEMON_PASS || process.env.APP_PASSWORD || 'umbrel' },
+  nmc: { host: process.env.NMC_DAEMON_HOST || 'namecoind', rpcPort: process.env.NMC_DAEMON_PORT || '8336', user: process.env.NMC_DAEMON_USER || 'umbrel', pass: process.env.NMC_DAEMON_PASS || process.env.APP_PASSWORD || 'umbrel' },
   redis: { host: process.env.REDIS_HOST || 'redis', port: process.env.REDIS_PORT || '6379' }
 };
 
@@ -113,9 +114,14 @@ function generateCoiniumConfigs(cfg) {
     blockExplorer: { block: 'https://blockchair.com/dogecoin/block/{0}', tx: 'https://blockchair.com/dogecoin/transaction/{0}', address: 'https://blockchair.com/dogecoin/address/{0}' }
   }, null, 2));
 
-  // BTC Pool
+  fs.writeFileSync(path.join(confDir, 'coins', 'namecoin.json'), JSON.stringify({
+    name: 'Namecoin', symbol: 'NMC', algorithm: 'sha256d', site: 'https://www.namecoin.org',
+    blockExplorer: { block: 'https://namecha.in/block/{0}', tx: 'https://namecha.in/tx/{0}', address: 'https://namecha.in/address/{0}' }
+  }, null, 2));
+
+  // BTC Pool (with optional Namecoin merge mining)
   if (cfg.enableBtc) {
-    fs.writeFileSync(path.join(confDir, 'pools', 'bitcoin-pool.json'), JSON.stringify({
+    const btcPool = {
       enabled: true, coin: 'bitcoin.json',
       daemon: { host: DEFAULTS.btc.host, port: parseInt(DEFAULTS.btc.rpcPort), username: DEFAULTS.btc.user, password: DEFAULTS.btc.pass },
       meta: { title: 'Bitcoin Pool', frontEnd: 'embedded', txMessage: 'umbrelOS/CoiniumServ' },
@@ -128,7 +134,21 @@ function generateCoiniumConfigs(cfg) {
       },
       banning: { enabled: true, duration: 600, invalidPercent: 50, checkThreshold: 100, purgeInterval: 300 },
       storage: { hybrid: { enabled: true, redis: { host: DEFAULTS.redis.host, port: parseInt(DEFAULTS.redis.port), password: '', databaseId: 0 } } }
-    }, null, 2));
+    };
+
+    if (cfg.enableNmcMerge && cfg.nmcAddress) {
+      btcPool.mergedMining = {
+        enabled: true,
+        auxiliaries: [{
+          enabled: true, coin: 'namecoin.json',
+          daemon: { host: DEFAULTS.nmc.host, port: parseInt(DEFAULTS.nmc.rpcPort), username: DEFAULTS.nmc.user, password: DEFAULTS.nmc.pass },
+          wallet: { address: cfg.nmcAddress },
+          payment: { enabled: true, interval: 240, minimum: 0.01 }
+        }]
+      };
+    }
+
+    fs.writeFileSync(path.join(confDir, 'pools', 'bitcoin-pool.json'), JSON.stringify(btcPool, null, 2));
   }
 
   // LTC + DOGE merge mining pool
@@ -204,17 +224,18 @@ const server = http.createServer(async (req, res) => {
   // --- API: Status ---
   if (url.pathname === '/api/status') {
     const cfg = loadConfig();
-    const [btc, ltc, doge, redis] = await Promise.all([
-      getDaemonStatus('btc'), getDaemonStatus('ltc'), getDaemonStatus('doge'), getRedisStatus()
+    const [btc, ltc, doge, nmc, redis] = await Promise.all([
+      getDaemonStatus('btc'), getDaemonStatus('ltc'), getDaemonStatus('doge'), getDaemonStatus('nmc'), getRedisStatus()
     ]);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
       configured: !!cfg,
       poolRunning: coiniumProcess !== null && !coiniumProcess.killed,
       config: cfg ? { enableBtc: cfg.enableBtc, enableLtcDoge: cfg.enableLtcDoge, enableMergeMining: cfg.enableMergeMining,
+        enableNmcMerge: cfg.enableNmcMerge,
         btcAddress: cfg.btcAddress ? cfg.btcAddress.slice(0,8) + '...' : '', ltcAddress: cfg.ltcAddress ? cfg.ltcAddress.slice(0,8) + '...' : '',
-        dogeAddress: cfg.dogeAddress ? cfg.dogeAddress.slice(0,8) + '...' : '' } : null,
-      daemons: { btc, ltc, doge }, redis
+        dogeAddress: cfg.dogeAddress ? cfg.dogeAddress.slice(0,8) + '...' : '', nmcAddress: cfg.nmcAddress ? cfg.nmcAddress.slice(0,8) + '...' : '' } : null,
+      daemons: { btc, ltc, doge, nmc }, redis
     }));
   }
 
@@ -228,6 +249,7 @@ const server = http.createServer(async (req, res) => {
         // Validate
         const errors = [];
         if (cfg.enableBtc && !cfg.btcAddress) errors.push('Bitcoin wallet address is required');
+        if (cfg.enableNmcMerge && !cfg.nmcAddress) errors.push('Namecoin wallet address is required for merge mining');
         if (cfg.enableLtcDoge && !cfg.ltcAddress) errors.push('Litecoin wallet address is required');
         if (cfg.enableMergeMining && !cfg.dogeAddress) errors.push('Dogecoin wallet address is required for merge mining');
         if (!cfg.enableBtc && !cfg.enableLtcDoge) errors.push('Enable at least one pool');
@@ -365,7 +387,7 @@ function getHTML() {
     <h1>⛏️ CoiniumServ</h1>
     <span id="poolBadge"></span>
   </div>
-  <p class="subtitle">Multi-coin mining pool with Litecoin + Dogecoin merge mining</p>
+  <p class="subtitle">Multi-coin mining pool — BTC + Namecoin &amp; LTC + Dogecoin merge mining</p>
 
   <!-- ================================================================== -->
   <!-- STATUS CARDS                                                       -->
@@ -393,6 +415,15 @@ function getHTML() {
     <div id="btcFields" class="field" style="margin-left: 54px;">
       <label>BTC Wallet Address</label>
       <input type="text" id="btcAddress" placeholder="bc1q... or 1... or 3...">
+      <label class="toggle" style="margin-top:8px;">
+        <input type="checkbox" id="enableNmcMerge" checked onchange="toggleSection()">
+        <span class="track"></span>
+        <span class="text"><strong>Merge mine Namecoin</strong> <small>— earn NMC from the same SHA256 work (AuxPoW)</small></span>
+      </label>
+      <div id="nmcFields" class="field" style="margin-left: 54px;">
+        <label>NMC Wallet Address</label>
+        <input type="text" id="nmcAddress" placeholder="N... or nc1q...">
+      </div>
     </div>
 
     <hr class="divider">
@@ -435,7 +466,7 @@ function getHTML() {
     </div>
 
     <div id="btcMinerInfo" class="miner-instructions">
-      <p><strong>Bitcoin (SHA256d ASICs)</strong></p>
+      <p><strong>Bitcoin + Namecoin (SHA256d ASICs)</strong> — merge-mined, earns both!</p>
       <div class="stratum-box">
         <span id="btcStratumUrl">stratum+tcp://<span class="host-placeholder">your-umbrel-ip</span>:3333</span>
         <button class="copy-btn" onclick="copyText('btcStratumUrl')">Copy</button>
@@ -465,7 +496,9 @@ function toggleSection() {
   const btc = document.getElementById('enableBtc').checked;
   const ltcDoge = document.getElementById('enableLtcDoge').checked;
   const merge = document.getElementById('enableMergeMining').checked;
+  const nmcMerge = document.getElementById('enableNmcMerge').checked;
   document.getElementById('btcFields').style.display = btc ? '' : 'none';
+  document.getElementById('nmcFields').style.display = (btc && nmcMerge) ? '' : 'none';
   document.getElementById('ltcFields').style.display = ltcDoge ? '' : 'none';
   document.getElementById('dogeFields').style.display = (ltcDoge && merge) ? '' : 'none';
   document.getElementById('btcMinerInfo').style.display = btc ? '' : 'none';
@@ -493,9 +526,11 @@ async function saveSetup() {
   try {
     const body = {
       enableBtc: document.getElementById('enableBtc').checked,
+      enableNmcMerge: document.getElementById('enableNmcMerge').checked,
       enableLtcDoge: document.getElementById('enableLtcDoge').checked,
       enableMergeMining: document.getElementById('enableMergeMining').checked,
       btcAddress: document.getElementById('btcAddress').value.trim(),
+      nmcAddress: document.getElementById('nmcAddress').value.trim(),
       ltcAddress: document.getElementById('ltcAddress').value.trim(),
       dogeAddress: document.getElementById('dogeAddress').value.trim()
     };
@@ -552,6 +587,7 @@ async function refreshStatus() {
     // Daemon cards
     document.getElementById('daemonCards').innerHTML =
       daemonCard('Bitcoin', 'BTC', '₿', s.daemons.btc) +
+      daemonCard('Namecoin', 'NMC', 'ℕ', s.daemons.nmc) +
       daemonCard('Litecoin', 'LTC', 'Ł', s.daemons.ltc) +
       daemonCard('Dogecoin', 'DOGE', 'Ð', s.daemons.doge) +
       '<div class="card" style="padding:14px;"><div style="display:flex;justify-content:space-between;align-items:center;">' +
