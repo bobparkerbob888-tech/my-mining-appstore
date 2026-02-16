@@ -1,0 +1,147 @@
+version: "3.7"
+
+# =============================================================================
+# CoiniumServ Merge Mining Pool — umbrelOS
+#
+# IMPORTANT: Replace bobparkerbob888-tech below with your actual GitHub username.
+# The image is auto-built by GitHub Actions when you push code.
+# =============================================================================
+
+services:
+
+  # Bitcoin Core
+  bitcoind:
+    image: lncm/bitcoind:v27.0
+    restart: on-failure
+    stop_grace_period: 15m
+    volumes:
+      - ${APP_DATA_DIR}/data/bitcoin:/data/.bitcoin
+    command:
+      - -server=1
+      - -rpcuser=umbrel
+      - -rpcpassword=${APP_PASSWORD:-umbrel}
+      - -rpcallowip=0.0.0.0/0
+      - -rpcbind=0.0.0.0
+      - -rpcport=8332
+      - -port=8333
+      - -txindex=1
+      - -printtoconsole
+      - -dbcache=450
+    networks:
+      default:
+        ipv4_address: 10.21.100.10
+
+  # Litecoin Core (parent chain for merge mining)
+  litecoind:
+    image: uphold/litecoin-core:0.21.3
+    restart: on-failure
+    stop_grace_period: 15m
+    volumes:
+      - ${APP_DATA_DIR}/data/litecoin:/home/litecoin/.litecoin
+    command:
+      - litecoind
+      - -server=1
+      - -rpcuser=umbrel
+      - -rpcpassword=${APP_PASSWORD:-umbrel}
+      - -rpcallowip=0.0.0.0/0
+      - -rpcbind=0.0.0.0
+      - -rpcport=9332
+      - -port=9333
+      - -txindex=1
+      - -printtoconsole
+    networks:
+      default:
+        ipv4_address: 10.21.100.11
+
+  # Dogecoin Core (auxiliary chain, merge-mined with Litecoin)
+  dogecoind:
+    image: casperstack/dogecoin:latest
+    restart: on-failure
+    stop_grace_period: 15m
+    volumes:
+      - ${APP_DATA_DIR}/data/dogecoin:/home/dogecoin/.dogecoin
+    command:
+      - dogecoind
+      - -server=1
+      - -rpcuser=umbrel
+      - -rpcpassword=${APP_PASSWORD:-umbrel}
+      - -rpcallowip=0.0.0.0/0
+      - -rpcbind=0.0.0.0
+      - -rpcport=22555
+      - -port=22556
+      - -txindex=1
+      - -printtoconsole
+    networks:
+      default:
+        ipv4_address: 10.21.100.12
+
+  # Redis (share & stats storage)
+  redis:
+    image: redis:7-alpine
+    restart: on-failure
+    command: redis-server --appendonly yes --save 60 1 --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ${APP_DATA_DIR}/data/redis:/data
+    networks:
+      default:
+        ipv4_address: 10.21.100.13
+
+  # =========================================================================
+  # CoiniumServ + Web Dashboard
+  # =========================================================================
+  # ⚠️  REPLACE "bobparkerbob888-tech" below with YOUR GitHub username!
+  #     Example: ghcr.io/johndoe/coiniumserv-mining-pool:latest
+  # =========================================================================
+  coiniumserv:
+    image: ghcr.io/bobparkerbob888-tech/coiniumserv-mining-pool:latest
+    restart: on-failure
+    depends_on:
+      - bitcoind
+      - litecoind
+      - dogecoind
+      - redis
+    environment:
+      APP_PASSWORD: ${APP_PASSWORD:-umbrel}
+      BTC_DAEMON_HOST: "10.21.100.10"
+      BTC_DAEMON_PORT: "8332"
+      BTC_DAEMON_USER: "umbrel"
+      BTC_DAEMON_PASS: "${APP_PASSWORD:-umbrel}"
+      LTC_DAEMON_HOST: "10.21.100.11"
+      LTC_DAEMON_PORT: "9332"
+      LTC_DAEMON_USER: "umbrel"
+      LTC_DAEMON_PASS: "${APP_PASSWORD:-umbrel}"
+      DOGE_DAEMON_HOST: "10.21.100.12"
+      DOGE_DAEMON_PORT: "22555"
+      DOGE_DAEMON_USER: "umbrel"
+      DOGE_DAEMON_PASS: "${APP_PASSWORD:-umbrel}"
+      REDIS_HOST: "10.21.100.13"
+      REDIS_PORT: "6379"
+      DATA_DIR: "/app/data"
+    ports:
+      - "3333:3333"
+      - "3334:3334"
+      - "8080:8080"
+    volumes:
+      - ${APP_DATA_DIR}/data/coiniumserv:/app/data
+    networks:
+      default:
+        ipv4_address: 10.21.100.14
+
+  # Umbrel app proxy
+  app_proxy:
+    environment:
+      APP_HOST: 10.21.100.14
+      APP_PORT: 8080
+    image: getumbrel/app-proxy:v1.0.0
+    restart: on-failure
+    networks:
+      default:
+        ipv4_address: 10.21.100.15
+
+networks:
+  default:
+    name: coiniumserv_mergemining
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.21.100.0/24

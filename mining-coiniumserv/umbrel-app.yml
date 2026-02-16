@@ -1,0 +1,35 @@
+manifestVersion: 1
+id: mining-coiniumserv
+category: bitcoin
+name: "CoiniumServ Mining Pool"
+version: "1.0.0"
+tagline: "Mine BTC, LTC & DOGE from one dashboard — with merge mining"
+description: >-
+  Your own multi-coin mining pool in one click. Just install, paste your wallet
+  addresses, and point your miners.
+
+
+  Bitcoin pool (SHA256d) on port 3333. Litecoin pool (Scrypt) on port 3334.
+  Dogecoin merge mining — automatically earn DOGE from the same Scrypt work.
+  Live dashboard showing sync progress, pool status, and miner connection info.
+  Toggle pools and merge mining on/off with a switch.
+
+
+  All three blockchains are bundled and managed automatically. The built-in
+  setup wizard guides you through configuration in under a minute.
+releaseNotes: >-
+  Initial release with guided setup wizard, Bitcoin SHA256d pool, Litecoin
+  Scrypt pool with Dogecoin AuxPoW merge mining, Redis storage, and vardiff.
+developer: "CoiniumServ Community"
+website: "https://github.com/bonesoul/CoiniumServ"
+repo: "https://github.com/bonesoul/CoiniumServ"
+support: "https://github.com/bonesoul/CoiniumServ/issues"
+port: 8080
+dependencies: []
+permissions: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+submittable: true
+deterministicPassword: false
+torOnly: false
