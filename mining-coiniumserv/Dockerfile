@@ -1,43 +1,70 @@
 # =============================================================================
 # CoiniumServ + Web Dashboard
-# Stage 1: Build CoiniumServ from source
-# Stage 2: Node.js dashboard + Mono runtime
+# Stage 1: Build CoiniumServ on Ubuntu 22.04 with Mono from official repo
+# Stage 2: Node.js runtime + Mono runtime
 # =============================================================================
 
 # --- Build CoiniumServ ---
-FROM mono:6.12 AS builder
-RUN apt-get update && apt-get install -y --no-install-recommends git nuget ca-certificates && rm -rf /var/lib/apt/lists/*
+FROM ubuntu:22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates gnupg git curl && \
+    gpg --homedir /tmp --no-default-keyring \
+      --keyring gnupg-ring:/usr/share/keyrings/mono-official-archive-keyring.gpg \
+      --keyserver hkp://keyserver.ubuntu.com:80 \
+      --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF && \
+    chmod +r /usr/share/keyrings/mono-official-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/mono-official-archive-keyring.gpg] https://download.mono-project.com/repo/ubuntu stable-focal main" \
+      > /etc/apt/sources.list.d/mono-official-stable.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      mono-devel nuget msbuild && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 RUN git clone --depth 1 --branch develop https://github.com/bonesoul/CoiniumServ.git .
+
 RUN nuget restore CoiniumServ.sln && \
     (msbuild /p:Configuration=Release /p:Platform="Any CPU" CoiniumServ.sln || \
-     xbuild /p:Configuration=Release CoiniumServ.sln || true)
+     msbuild /p:Configuration=Release CoiniumServ.sln || true)
+
 RUN if [ ! -f src/CoiniumServ/bin/Release/CoiniumServ.exe ]; then \
-      cd src/CoiniumServ && (msbuild /p:Configuration=Release CoiniumServ.csproj || xbuild /p:Configuration=Release CoiniumServ.csproj || true); \
+      cd src/CoiniumServ && \
+      msbuild /p:Configuration=Release CoiniumServ.csproj || true; \
     fi
+
 RUN cp -r src/CoiniumServ/web src/CoiniumServ/bin/Release/web 2>/dev/null || true
 
-# --- Runtime: Node 20 + Mono ---
-FROM node:20-bookworm-slim
+# --- Runtime ---
+FROM ubuntu:22.04
 
-# Install Mono runtime (for CoiniumServ) and curl (for health checks)
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Node.js 20 + Mono runtime
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gnupg ca-certificates curl && \
-    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF && \
-    echo "deb https://download.mono-project.com/repo/debian stable-bookworm main" > /etc/apt/sources.list.d/mono.list && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates gnupg curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    gpg --homedir /tmp --no-default-keyring \
+      --keyring gnupg-ring:/usr/share/keyrings/mono-official-archive-keyring.gpg \
+      --keyserver hkp://keyserver.ubuntu.com:80 \
+      --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF && \
+    chmod +r /usr/share/keyrings/mono-official-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/mono-official-archive-keyring.gpg] https://download.mono-project.com/repo/ubuntu stable-focal main" \
+      > /etc/apt/sources.list.d/mono-official-stable.list && \
     apt-get update && \
-    apt-get install -y --no-install-recommends mono-runtime libmono-system-net-http4.0-cil && \
+    apt-get install -y --no-install-recommends \
+      nodejs mono-runtime && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy CoiniumServ binary
 COPY --from=builder /build/src/CoiniumServ/bin/Release/ /app/coiniumserv/
-
-# Copy web dashboard
 COPY web-ui/ /app/web-ui/
 
-# Create data directory
 RUN mkdir -p /app/data /app/coiniumserv/config
 
 ENV DATA_DIR=/app/data
