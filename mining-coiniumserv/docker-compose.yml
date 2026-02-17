@@ -1,10 +1,11 @@
 services:
 
   # Bitcoin Core (SHA256 parent chain)
-  bitcoind:
+ bitcoind:
     image: lncm/bitcoind:v27.2
     restart: on-failure
     stop_grace_period: 15m
+    user: "1000:1000"
     volumes:
       - ${APP_DATA_DIR}/data/bitcoin:/data/.bitcoin
     command:
