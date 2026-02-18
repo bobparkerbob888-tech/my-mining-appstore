@@ -23,7 +23,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v5
         with:
-          context: ./mining-coiniumserv
+          context: ./mining-yiimp
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/coiniumserv-mining-pool:latest
