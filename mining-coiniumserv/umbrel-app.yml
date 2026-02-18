@@ -2,28 +2,28 @@ manifestVersion: 1
 id: mining-coiniumserv
 category: bitcoin
 name: "CoiniumServ Mining Pool"
-version: "1.0.0"
-tagline: "Mine BTC, LTC & DOGE from one dashboard — with merge mining"
+version: "1.1.0"
+tagline: "Mine BTC, LTC, DOGE, NMC & PEPE from one dashboard"
 description: >-
   Your own multi-coin mining pool in one click. Just install, paste your wallet
   addresses, and point your miners.
 
 
-  Bitcoin pool (SHA256d) on port 3333. Litecoin pool (Scrypt) on port 3334.
-  Dogecoin merge mining — automatically earn DOGE from the same Scrypt work.
+  SHA256 pool on port 3333 — mines Bitcoin with Namecoin merge mining.
+  Scrypt pool on port 3434 — mines Litecoin with Dogecoin and Pepecoin merge mining.
   Live dashboard showing sync progress, pool status, and miner connection info.
-  Toggle pools and merge mining on/off with a switch.
 
 
-  All three blockchains are bundled and managed automatically. The built-in
-  setup wizard guides you through configuration in under a minute.
+  Five blockchains bundled: BTC, NMC (SHA256 merge-mined), LTC, DOGE, PEPE
+  (Scrypt merge-mined). MariaDB for stats, Redis for share tracking.
+  Built-in stratum with vardiff and BIP310 ASICBoost support.
 releaseNotes: >-
-  Initial release with guided setup wizard, Bitcoin SHA256d pool, Litecoin
-  Scrypt pool with Dogecoin AuxPoW merge mining, Redis storage, and vardiff.
+  Added Pepecoin (PEPE) scrypt merge mining, Namecoin (NMC) SHA256 merge mining,
+  MariaDB database, IPv6 networking, and updated stratum ports (SHA256:3333, Scrypt:3434).
 developer: "CoiniumServ Community"
-website: "https://github.com/bonesoul/CoiniumServ"
-repo: "https://github.com/bonesoul/CoiniumServ"
-support: "https://github.com/bonesoul/CoiniumServ/issues"
+website: "https://github.com/bobparkerbob888-tech/my-mining-appstore"
+repo: "https://github.com/bobparkerbob888-tech/my-mining-appstore"
+support: "https://github.com/bobparkerbob888-tech/my-mining-appstore/issues"
 port: 8080
 dependencies: []
 permissions: []
