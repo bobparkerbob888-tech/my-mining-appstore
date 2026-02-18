@@ -1,97 +1,68 @@
-# CoiniumServ Mining Pool for Umbrel
+# YIIMP Mining Pool for Umbrel
 
-Mine BTC, LTC & DOGE from one dashboard with merge mining.
+Mine **BTC, LTC, DOGE, NMC & PEPE** from one dashboard with merge mining.
+
+- **SHA256 pool** (port 3333) — Bitcoin + Namecoin merge mining
+- **Scrypt pool** (port 3434) — Litecoin + Dogecoin + Pepecoin merge mining
+- BIP310 ASICBoost / version-rolling support
+- Segwit (bech32) address support
+- Built-in vardiff stratum
 
 ---
 
-## Setup (all in your browser, no terminal needed)
+## Install on Umbrel
 
-### Step 1: Fork this repo
+### Step 1: Add Community App Store
 
-Click the **"Fork"** button at the top-right of this page.  
-This creates your own copy under your GitHub account.
-
-### Step 2: Edit one line
-
-In YOUR forked copy, open the file:  
-**`mining-coiniumserv/docker-compose.yml`**
-
-Click the ✏️ pencil icon to edit it.
-
-Find this line (around line 85):
-```
-    image: ghcr.io/GITHUB_USERNAME/coiniumserv-mining-pool:latest
-```
-
-Replace `GITHUB_USERNAME` with **your actual GitHub username** (lowercase).  
-For example, if your username is `johndoe`:
-```
-    image: ghcr.io/johndoe/coiniumserv-mining-pool:latest
-```
-
-Click **"Commit changes"**.
-
-### Step 3: Wait for the image to build
-
-After you commit, GitHub automatically builds the Docker image for you.  
-Click the **"Actions"** tab at the top of your repo to watch progress.  
-It takes about 5-10 minutes. Wait until you see a green ✅ checkmark.
-
-> **If it fails:** Go to your repo → Settings → Actions → General → 
-> under "Workflow permissions" select **"Read and write permissions"** → Save.
-> Then go back to Actions, click the failed run, and click "Re-run all jobs".
-
-### Step 4: Make the image public
-
-1. Go to your GitHub profile page
-2. Click the **"Packages"** tab
-3. Click on **coiniumserv-mining-pool**
-4. Click **"Package settings"** (right side)
-5. Scroll to "Danger Zone" → click **"Change visibility"** → choose **Public** → confirm
-
-### Step 5: Add to Umbrel
-
-1. Open your Umbrel: `http://umbrel.local`
+1. Open your Umbrel dashboard
 2. Go to **App Store**
-3. Click **⋯** (three dots, top-right)
-4. Click **"Community App Stores"**
-5. Paste your fork URL:
+3. Click the **⋯** menu (top-right)
+4. Click **Community App Stores**
+5. Paste this URL:
    ```
-   https://github.com/YOUR_USERNAME/my-mining-appstore
+   https://github.com/bobparkerbob888-tech/my-mining-appstore
    ```
 6. Click **Add**
 
-### Step 6: Install & go
+### Step 2: Install
 
-1. Click **"Mining Pool Apps"** in the App Store sidebar
+1. Find **Mining Pool Apps** in the App Store sidebar
 2. Click **CoiniumServ Mining Pool** → **Install**
-3. Open the app
-4. Paste your wallet addresses, toggle your pools, click **Save & Start**
-5. Copy the stratum URLs and paste into your miner config
+3. Wait for blockchain sync (BTC takes days, LTC/DOGE/NMC/PEPE take hours)
 
 ---
 
 ## Miner Setup
 
-| Miner Type | Connect To | Earns |
+| Miner Type | Stratum URL | Earns |
 |---|---|---|
-| SHA256 ASIC (S19, etc.) | `stratum+tcp://umbrel.local:3333` | BTC |
-| Scrypt ASIC (L7, etc.)  | `stratum+tcp://umbrel.local:3334` | LTC + DOGE |
+| SHA256 ASIC (S19, S21, etc.) | `stratum+tcp://umbrel.local:3333` | BTC + NMC |
+| Scrypt ASIC (L7, L9, etc.) | `stratum+tcp://umbrel.local:3434` | LTC + DOGE + PEPE |
 
-Username: your wallet address | Password: `x`
+- **Username**: your wallet address
+- **Password**: `x`
+
+---
+
+## What's Included
+
+| Service | Image | Purpose |
+|---|---|---|
+| Bitcoin Core | lncm/bitcoind:v27.2 | SHA256 parent chain |
+| Namecoin Core | sevenrats/namecoin-core | SHA256 aux chain (merge-mined) |
+| Litecoin Core | uphold/litecoin-core:0.21 | Scrypt parent chain |
+| Dogecoin Core | casperstack/dogecoin | Scrypt aux chain (merge-mined) |
+| Pepecoin Core | pepeenthusiast/pepecoin-core | Scrypt aux chain (merge-mined) |
+| Redis | redis:6-alpine | Share & stats storage |
+| MariaDB | mysql:5.7 | Pool database |
+| Web Dashboard | coiniumserv-mining-pool | Pool status & management |
 
 ---
 
 ## Troubleshooting
 
-**Install stuck at 1%?**  
-The Docker image wasn't built yet. Go to your repo → Actions tab → make sure the build finished with ✅. Also make sure you did Step 4 (make image public).
+**Blockchain sync takes forever?**
+Normal on first run. BTC can take several days. LTC/DOGE/NMC/PEPE take hours to a day.
 
-**Image build fails?**  
-Go to Settings → Actions → General → set "Workflow permissions" to "Read and write" → re-run the build.
-
-**Blockchain sync takes forever?**  
-That's normal on first run. BTC takes days, LTC/DOGE take hours. The dashboard shows progress.
-
-**Can I skip Bitcoin and just run LTC + DOGE?**  
-Yes — toggle off Bitcoin in the setup wizard. You can also remove the `bitcoind` service from docker-compose.yml.
+**Image build fails?**
+Go to repo Settings → Actions → General → set "Workflow permissions" to "Read and write" → re-run.
