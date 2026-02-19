@@ -1,5 +1,20 @@
 services:
 
+  # Umbrel App Proxy — routes Umbrel dashboard to YIIMP web UI (port 8888)
+  app_proxy:
+    image: getumbrel/app-proxy:1.0.0
+    restart: on-failure
+    environment:
+      APP_HOST: "host.docker.internal"
+      APP_PORT: "8888"
+      PROXY_AUTH_ADD: "false"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${APP_DATA_DIR}/umbrel-app.yml:/extra/umbrel-app.yml:ro
+    ports:
+      - "8080:4000"
+
   # Bitcoin Core (SHA256 parent chain)
   bitcoind:
     image: lncm/bitcoind:v27.2
@@ -105,89 +120,3 @@ services:
       - -printtoconsole
     ports:
       - "29373:29373"
-
-  # Redis (share & stats storage)
-  redis:
-    image: redis:6-alpine
-    restart: on-failure
-    command: >-
-      redis-server --appendonly yes --save 60 1 --maxmemory 1024mb
-      --maxmemory-policy volatile-lru
-    volumes:
-      - ${APP_DATA_DIR}/data/redis:/data
-
-  # MariaDB (YIIMP database)
-  mariadb:
-    image: mysql:5.7
-    restart: on-failure
-    environment:
-      MYSQL_ROOT_PASSWORD: coiniumserv
-      MYSQL_DATABASE: coiniumserv
-      MYSQL_USER: coiniumserv
-      MYSQL_PASSWORD: coiniumserv
-    volumes:
-      - ${APP_DATA_DIR}/data/mysql57:/var/lib/mysql
-
-  # Umbrel App Proxy (image, ports, and network provided by Umbrel's app_proxy fragment)
-  app_proxy:
-    environment:
-      APP_HOST: coiniumserv
-      APP_PORT: 8080
-
-  # CoiniumServ Mining Pool + Web Dashboard
-  coiniumserv:
-    image: ghcr.io/bobparkerbob888-tech/coiniumserv-mining-pool:latest
-    restart: on-failure
-    depends_on:
-      - bitcoind
-      - namecoind
-      - litecoind
-      - dogecoind
-      - pepecoind
-      - redis
-      - mariadb
-    environment:
-      APP_PASSWORD: ${APP_PASSWORD:-umbrel}
-      BTC_DAEMON_HOST: "bitcoind"
-      BTC_DAEMON_PORT: "8332"
-      BTC_DAEMON_USER: "umbrel"
-      BTC_DAEMON_PASS: "${APP_PASSWORD:-umbrel}"
-      NMC_DAEMON_HOST: "namecoind"
-      NMC_DAEMON_PORT: "8336"
-      NMC_DAEMON_USER: "umbrel"
-      NMC_DAEMON_PASS: "${APP_PASSWORD:-umbrel}"
-      LTC_DAEMON_HOST: "litecoind"
-      LTC_DAEMON_PORT: "9332"
-      LTC_DAEMON_USER: "umbrel"
-      LTC_DAEMON_PASS: "${APP_PASSWORD:-umbrel}"
-      DOGE_DAEMON_HOST: "dogecoind"
-      DOGE_DAEMON_PORT: "22555"
-      DOGE_DAEMON_USER: "umbrel"
-      DOGE_DAEMON_PASS: "${APP_PASSWORD:-umbrel}"
-      PEP_DAEMON_HOST: "pepecoind"
-      PEP_DAEMON_PORT: "29373"
-      PEP_DAEMON_USER: "umbrel"
-      PEP_DAEMON_PASS: "${APP_PASSWORD:-umbrel}"
-      REDIS_HOST: "redis"
-      REDIS_PORT: "6379"
-      MYSQL_HOST: "mariadb"
-      MYSQL_PORT: "3306"
-      MYSQL_USER: "coiniumserv"
-      MYSQL_PASS: "coiniumserv"
-      MYSQL_DB: "coiniumserv"
-      DATA_DIR: "/app/data"
-      MONO_THREADS_PER_CPU: "100"
-    ports:
-      - "3333:3333"
-      - "3434:3434"
-      - "3380:8080"
-    volumes:
-      - ${APP_DATA_DIR}/data/coiniumserv:/app/data
-      - ${APP_DATA_DIR}/web-ui/server.js:/app/web-ui/server.js
-
-networks:
-  default:
-    enable_ipv6: true
-    ipam:
-      config:
-        - subnet: fd00:dead:beef::/48

@@ -2,25 +2,11 @@ manifestVersion: 1
 id: mining-yiimp
 category: bitcoin
 name: "YIIMP Mining Pool"
-version: "1.1.0"
+version: "1.2.0"
 tagline: "Mine BTC, LTC, DOGE, NMC & PEPE from one dashboard"
-description: >-
-  Your own multi-coin mining pool in one click. Just install, paste your wallet
-  addresses, and point your miners.
-
-
-  SHA256 pool on port 3333 — mines Bitcoin with Namecoin merge mining.
-  Scrypt pool on port 3434 — mines Litecoin with Dogecoin and Pepecoin merge mining.
-  Live dashboard showing sync progress, pool status, and miner connection info.
-
-
-  Five blockchains bundled: BTC, NMC (SHA256 merge-mined), LTC, DOGE, PEPE
-  (Scrypt merge-mined). MariaDB for stats, Redis for share tracking.
-  Built-in stratum with vardiff and BIP310 ASICBoost support.
-releaseNotes: >-
-  Added Pepecoin (PEPE) scrypt merge mining, Namecoin (NMC) SHA256 merge mining,
-  MariaDB database, IPv6 networking, and updated stratum ports (SHA256:3333, Scrypt:3434).
-developer: "CoiniumServ Community"
+description: "Multi-coin YIIMP mining pool with SHA256 stratum on port 3333 (BTC + NMC merge mining) and Scrypt stratum on port 3434 (LTC + DOGE + PEPE merge mining). Features vardiff, BIP310 ASICBoost/version-rolling, and segwit (bech32) address support. Includes all five coin daemons."
+releaseNotes: "Rewritten for YIIMP. Added Pepecoin (PEPE) scrypt merge mining, Namecoin (NMC) SHA256 merge mining. Stratum ports: SHA256 on 3333, Scrypt on 3434."
+developer: "bobparkerbob888-tech"
 website: "https://github.com/bobparkerbob888-tech/my-mining-appstore"
 repo: "https://github.com/bobparkerbob888-tech/my-mining-appstore"
 support: "https://github.com/bobparkerbob888-tech/my-mining-appstore/issues"
